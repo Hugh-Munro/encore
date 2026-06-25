@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Collection</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:       #1a1a1a;
+      --muted:     #6b6b6b;
+      --rule:      #e0dbd3;
+      --bg:        #f7f4ef;
+      --card:      #ffffff;
+      --accent:    #2e5c3e;
+      --accent-lt: #e8f0eb;
+      --tab-h:     52px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 2.5rem 2rem 1.25rem;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .header-inner {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+
+    header p {
+      margin-top: 0.25rem;
+      color: var(--muted);
+      font-size: 0.875rem;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Stats bar ── */
+    .stats {
+      display: flex;
+      gap: 2rem;
+      margin-top: 1rem;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 0.2rem;
+    }
+
+    /* ── Tabs ── */
+    .tabs-wrap {
+      border-bottom: 1px solid var(--rule);
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .tabs {
+      max-width: 860px;
+      margin: 0 auto;
+      display: flex;
+      gap: 0;
+      padding: 0 2rem;
+    }
+
+    .tab {
+      height: var(--tab-h);
+      padding: 0 1.25rem;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+
+    .tab:hover { color: var(--ink); }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* ── Main ── */
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 1.5rem 2rem 4rem;
+    }
+
+    /* ── Search ── */
+    .search-wrap {
+      margin-bottom: 1.25rem;
+      position: relative;
+    }
+
+    .search-wrap svg {
+      position: absolute;
+      left: 0.875rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    #search {
+      width: 100%;
+      padding: 0.65rem 1rem 0.65rem 2.5rem;
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      background: var(--card);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    #search:focus { border-color: var(--accent); }
+    #search::placeholder { color: var(--muted); }
+
+    /* ── Table ── */
+    .table-wrap {
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      padding: 0.7rem 1rem;
+      text-align: left;
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--rule);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    thead th:hover { color: var(--ink); }
+
+    thead th .sort-arrow {
+      display: inline-block;
+      margin-left: 4px;
+      opacity: 0.4;
+      font-size: 0.65rem;
+    }
+
+    thead th.sort-asc .sort-arrow::after  { content: '▲'; opacity: 1; }
+    thead th.sort-desc .sort-arrow::after { content: '▼'; opacity: 1; }
+    thead th:not(.sort-asc):not(.sort-desc) .sort-arrow::after { content: '⬍'; }
+
+    tbody tr {
+      border-bottom: 1px solid var(--rule);
+      transition: background 0.1s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--accent-lt); }
+
+    td {
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      vertical-align: middle;
+    }
+
+    td:first-child { font-weight: 500; }
+
+    td.creator { color: var(--muted); }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 500;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: var(--accent-lt);
+      color: var(--accent);
+      margin-left: 6px;
+      vertical-align: middle;
+      letter-spacing: 0.03em;
+    }
+
+    /* ── Empty / loading ── */
+    .empty {
+      padding: 3rem 1rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .count-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      header { padding: 1.5rem 1rem 1rem; }
+      main { padding: 1rem 1rem 3rem; }
+      .tabs { padding: 0 1rem; }
+      .tab { padding: 0 0.75rem; }
+      .stats { gap: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <h1>The Collection</h1>
+    <p>Books, films &amp; music from home</p>
+    <div class="stats">
+      <div class="stat"><span class="stat-num" id="stat-books">—</span><span class="stat-label">Books</span></div>
+      <div class="stat"><span class="stat-num" id="stat-dvds">—</span><span class="stat-label">Films</span></div>
+      <div class="stat"><span class="stat-num" id="stat-cds">—</span><span class="stat-label">Albums</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="tabs-wrap">
+  <div class="tabs">
+    <button class="tab active" data-tab="books">Books</button>
+    <button class="tab" data-tab="dvds">Films</button>
+    <button class="tab" data-tab="cds">Music</button>
+  </div>
+</div>
+
+<main>
+  <div class="search-wrap">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input id="search" type="search" placeholder="Search titles…" autocomplete="off" />
+  </div>
+
+  <div class="count-label" id="count-label"></div>
+
+  <div class="table-wrap">
+    <table id="main-table">
+      <thead id="table-head"></thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────────────────
+  const TABS = {
+    books: { label: 'Books',  file: 'data/books.csv', cols: ['title','author'],   headers: ['Title','Author']   },
+    dvds:  { label: 'Films',  file: 'data/dvds.csv',  cols: ['title','director'], headers: ['Title','Director'] },
+    cds:   { label: 'Music',  file: 'data/cds.csv',   cols: ['title','artist'],   headers: ['Title','Artist']   },
+  };
+
+  // ── State ────────────────────────────────────────────────────────────────
+  let cache      = {};   // { books: [...], dvds: [...], cds: [...] }
+  let activeTab  = 'books';
+  let sortCol    = 0;
+  let sortDir    = 'asc';
+  let query      = '';
+
+  // ── CSV parser (handles quoted fields) ──────────────────────────────────
+  function parseCSV(text) {
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    return lines.slice(1).map(line => {
+      const vals = [];
+      let cur = '', inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') { inQ = !inQ; continue; }
+        if (ch === ',' && !inQ) { vals.push(cur.trim()); cur = ''; continue; }
+        cur += ch;
+      }
+      vals.push(cur.trim());
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = vals[i] ?? '');
+      return obj;
+    }).filter(r => r[headers[0]]);  // drop blank rows
+  }
+
+  // ── Title cleaner ────────────────────────────────────────────────────────
+  function parseTitle(raw) {
+    const match = raw.match(/^(.*?)\s*\(x(\d+)\)\s*$/i);
+    if (match) return { display: match[1].trim(), copies: parseInt(match[2]) };
+    return { display: raw, copies: 1 };
+  }
+
+  // ── Fetch + cache ────────────────────────────────────────────────────────
+  async function loadTab(tab) {
+    if (cache[tab]) return;
+    try {
+      const res = await fetch(TABS[tab].file);
+      if (!res.ok) throw new Error(res.status);
+      const text = await res.text();
+      cache[tab] = parseCSV(text);
+    } catch (e) {
+      cache[tab] = [];
+      console.warn(`Could not load ${TABS[tab].file}:`, e);
+    }
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────
+  function render() {
+    const cfg  = TABS[activeTab];
+    const data = cache[activeTab] ?? [];
+
+    // filter
+    const q = query.toLowerCase();
+    let rows = q
+      ? data.filter(r => cfg.cols.some(c => (r[c] || '').toLowerCase().includes(q)))
+      : data;
+
+    // sort
+    const col = cfg.cols[sortCol];
+    rows = [...rows].sort((a, b) => {
+      const av = (a[col] || '').toLowerCase();
+      const bv = (b[col] || '').toLowerCase();
+      return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+
+    // head
+    const head = document.getElementById('table-head');
+    head.innerHTML = '<tr>' + cfg.headers.map((h, i) => `
+      <th data-col="${i}" class="${sortCol === i ? 'sort-' + sortDir : ''}">
+        ${h}<span class="sort-arrow"></span>
+      </th>`).join('') + '</tr>';
+
+    head.querySelectorAll('th').forEach(th => {
+      th.addEventListener('click', () => {
+        const ci = parseInt(th.dataset.col);
+        if (sortCol === ci) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        else { sortCol = ci; sortDir = 'asc'; }
+        render();
+      });
+    });
+
+    // body
+    const body = document.getElementById('table-body');
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="${cfg.cols.length}" class="empty">${
+        q ? 'No results for "' + query + '"' : 'Nothing here yet — add entries to ' + cfg.file
+      }</td></tr>`;
+    } else {
+      body.innerHTML = rows.map(r => {
+        const { display, copies } = parseTitle(r[cfg.cols[0]] || '');
+        const badge = copies > 1 ? `<span class="badge">×${copies}</span>` : '';
+        const creator = r[cfg.cols[1]] || '';
+        const creatorCell = (!creator || creator.toLowerCase() === 'n/a')
+          ? '<td class="creator">—</td>'
+          : `<td class="creator">${creator}</td>`;
+        return `<tr><td>${display}${badge}</td>${creatorCell}</tr>`;
+      }).join('');
+    }
+
+    // count
+    document.getElementById('count-label').textContent =
+      rows.length === data.length
+        ? `${data.length} ${cfg.label.toLowerCase()}`
+        : `${rows.length} of ${data.length} ${cfg.label.toLowerCase()}`;
+  }
+
+  // ── Tab switching ─────────────────────────────────────────────────────────
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      activeTab = btn.dataset.tab;
+      sortCol = 0; sortDir = 'asc';
+      document.getElementById('search').value = '';
+      query = '';
+      await loadTab(activeTab);
+      render();
+    });
+  });
+
+  // ── Search ────────────────────────────────────────────────────────────────
+  document.getElementById('search').addEventListener('input', e => {
+    query = e.target.value;
+    render();
+  });
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  async function loadStats() {
+    for (const [key] of Object.entries(TABS)) {
+      await loadTab(key);
+      document.getElementById('stat-' + key).textContent = cache[key].length;
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  (async () => {
+    await loadTab('books');
+    render();
+    loadStats(); // load others in background for stats
+  })();
+</script>
+</body>
+</html>
