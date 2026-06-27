@@ -24,19 +24,21 @@ const ICONS = {
 
 // ── Config ───────────────────────────────────────────────────────────────
 const TABS = {
-  books: { label: 'Books',  file: 'data/books.csv', cols: ['title','author'],   headers: ['Title','Author']   },
+  books: { label: 'Books',  file: 'data/books.csv', cols: ['title','author'],   headers: ['Title','Author'],   filterCol: 'genre' },
   dvds:  { label: 'Films',  file: 'data/dvds.csv',  cols: ['title','director'], headers: ['Title','Director'] },
   cds:   { label: 'Music',  file: 'data/cds.csv',   cols: ['title','artist'],   headers: ['Title','Artist']   },
 };
 
 // ── State ────────────────────────────────────────────────────────────────
-let cache     = {};
-let covers    = {};
-let activeTab = 'books';
-let sortCol   = 0;
-let sortDir   = 'asc';
-let query     = '';
-let viewMode  = 'grid';
+let cache         = {};
+let covers        = {};
+let activeTab     = 'books';
+let sortCol       = 0;
+let sortDir       = 'asc';
+let query         = '';
+let viewMode      = 'grid';
+let activeFilters = new Set();
+let filterBarOpen = false;
 
 // ── CSV parser ───────────────────────────────────────────────────────────
 function parseCSV(text) {
@@ -61,9 +63,9 @@ function parseCSV(text) {
 
 // ── Title cleaner ────────────────────────────────────────────────────────
 function parseTitle(raw) {
-  const match = raw.replace(/\s*\(x\d+\)\s*$/i, '').trim();
+  const clean  = raw.replace(/\s*\(x\d+\)\s*$/i, '').trim();
   const copies = raw.match(/\(x(\d+)\)/i);
-  return { display: match, copies: copies ? parseInt(copies[1]) : 1 };
+  return { display: clean, copies: copies ? parseInt(copies[1]) : 1 };
 }
 
 // ── Fetch + cache ────────────────────────────────────────────────────────
@@ -79,19 +81,85 @@ async function loadTab(tab) {
   }
 }
 
+// ── Genre counts ─────────────────────────────────────────────────────────
+function getGenreCounts() {
+  const cfg = TABS[activeTab];
+  if (!cfg.filterCol) return {};
+  const data = cache[activeTab] ?? [];
+  const counts = {};
+  for (const row of data) {
+    const g = (row[cfg.filterCol] || '').trim();
+    if (g) counts[g] = (counts[g] || 0) + 1;
+  }
+  return counts;
+}
+
 // ── Filter + sort ────────────────────────────────────────────────────────
 function getRows() {
   const cfg  = TABS[activeTab];
   const data = cache[activeTab] ?? [];
   const q    = query.toLowerCase();
-  let rows   = q
+
+  let rows = q
     ? data.filter(r => cfg.cols.some(c => (r[c] || '').toLowerCase().includes(q)))
     : data;
-  const col  = cfg.cols[sortCol];
+
+  if (cfg.filterCol && activeFilters.size > 0) {
+    rows = rows.filter(r => activeFilters.has((r[cfg.filterCol] || '').trim()));
+  }
+
+  const col = cfg.cols[sortCol];
   return [...rows].sort((a, b) => {
     const av = (a[col] || '').toLowerCase();
     const bv = (b[col] || '').toLowerCase();
     return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+}
+
+// ── Render filter bar ─────────────────────────────────────────────────────
+function renderFilterBar() {
+  const cfg       = TABS[activeTab];
+  const filterBar = document.getElementById('filter-bar');
+  const toggle    = document.getElementById('filter-toggle');
+  const label     = document.getElementById('filter-toggle-label');
+
+  const hasActive = activeFilters.size > 0;
+  toggle.classList.toggle('active', hasActive || filterBarOpen);
+  label.textContent = hasActive ? `Filter · ${activeFilters.size}` : 'Filter';
+
+  if (!filterBarOpen || !cfg.filterCol) {
+    filterBar.style.display = 'none';
+    filterBar.innerHTML = '';
+    return;
+  }
+
+  filterBar.style.display = 'flex';
+  filterBar.style.flexWrap = 'wrap';
+  filterBar.style.gap = '0.4rem';
+  filterBar.style.marginTop = '0.75rem';
+  filterBar.style.marginBottom = '1.25rem';
+
+  const counts    = getGenreCounts();
+  const genres    = Object.keys(counts).sort();
+  const allActive = activeFilters.size === 0;
+
+  filterBar.innerHTML = [
+    `<span class="filter-pill ${allActive ? 'active' : ''}" data-genre="">
+      All <span class="filter-pill-count">${(cache[activeTab] ?? []).length}</span>
+    </span>`,
+    ...genres.map(g => `
+      <span class="filter-pill ${activeFilters.has(g) ? 'active' : ''}" data-genre="${g}">
+        ${g} <span class="filter-pill-count">${counts[g]}</span>
+      </span>`)
+  ].join('');
+
+  filterBar.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const genre = pill.dataset.genre;
+      if (genre === '' || activeFilters.has(genre)) activeFilters.clear();
+      else { activeFilters.clear(); activeFilters.add(genre); }
+      render();
+    });
   });
 }
 
@@ -112,8 +180,6 @@ function renderGrid(rows) {
     const { display, copies } = parseTitle(r[cfg.cols[0]] || '');
     const badge       = copies > 1 ? `<span class="card-badge">×${copies}</span>` : '';
     const creator     = r[cfg.cols[1]] || '';
-    const creatorHtml = (!creator || creator.toLowerCase() === 'n/a')
-      ? '' : `<div class="card-creator">${creator}</div>`;
     const creatorBack = (!creator || creator.toLowerCase() === 'n/a')
       ? '' : `<div class="card-back-divider"></div><div class="card-back-creator">${creator}</div>`;
 
@@ -129,7 +195,6 @@ function renderGrid(rows) {
             ${imgHtml}
             <div class="card-body">
               <div class="card-title">${display}${badge}</div>
-              ${creatorHtml}
             </div>
           </div>
           <div class="card-back">
@@ -191,6 +256,8 @@ function render() {
   const gridEl = document.getElementById('grid-view');
   const listEl = document.getElementById('list-view');
 
+  renderFilterBar();
+
   if (viewMode === 'grid') {
     gridEl.classList.remove('hidden');
     listEl.classList.add('hidden');
@@ -206,6 +273,12 @@ function render() {
       ? `${data.length} ${cfg.label.toLowerCase()}`
       : `${rows.length} of ${data.length} ${cfg.label.toLowerCase()}`;
 }
+
+// ── Filter toggle ─────────────────────────────────────────────────────────
+document.getElementById('filter-toggle').addEventListener('click', () => {
+  filterBarOpen = !filterBarOpen;
+  render();
+});
 
 // ── View toggle ───────────────────────────────────────────────────────────
 document.getElementById('btn-grid').addEventListener('click', () => {
@@ -226,8 +299,11 @@ document.querySelectorAll('.tab').forEach(btn => {
   btn.addEventListener('click', async () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
-    activeTab = btn.dataset.tab;
-    sortCol = 0; sortDir = 'asc';
+    activeTab     = btn.dataset.tab;
+    sortCol       = 0;
+    sortDir       = 'asc';
+    activeFilters = new Set();
+    filterBarOpen = false;
     document.getElementById('search').value = '';
     query = '';
     await loadTab(activeTab);
