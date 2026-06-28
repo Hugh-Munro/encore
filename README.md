@@ -18,4 +18,4 @@ Entertainment hub for family collection
 
 ## Overview
 
-My parents have amassed an unmanageable amount of books, CDs and DVDs over the years, from which they can never find anything they want. To solve this issue, I went around the house catalogueing each an every one. To make it easy for them to actually use this information, I created this website so they can actually find what they are looking for.
+My parents have amassed an unmanageable amount of books, CDs and DVDs over the years, from which they can never find anything they want. To solve this issue, I went around the house cataloguing each an every one. To make it easy for them to actually use this information, I created this website so they can actually find what they are looking for.
