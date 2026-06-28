@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>The Collection</title>
+  <title>Encore</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garant:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 </head>
@@ -14,12 +14,13 @@
 
 <header>
   <div class="header-inner">
-    <h1>The Collection</h1>
-    <p>Books, films &amp; music from home</p>
+    <div class="header-left">
+      <h1>Encore</h1>
+    </div>
     <div class="stats">
-      <div class="stat"><span class="stat-num" id="stat-books">—</span><span class="stat-label">Books</span></div>
       <div class="stat"><span class="stat-num" id="stat-dvds">—</span><span class="stat-label">Films</span></div>
       <div class="stat"><span class="stat-num" id="stat-cds">—</span><span class="stat-label">Albums</span></div>
+      <div class="stat"><span class="stat-num" id="stat-books">—</span><span class="stat-label">Books</span></div>
     </div>
   </div>
 </header>
@@ -27,13 +28,13 @@
 <div class="tabs-wrap">
   <div class="tabs-inner">
     <div class="tabs">
-      <button class="tab active" data-tab="books">Books</button>
-      <button class="tab" data-tab="dvds">Films</button>
+      <button class="tab active" data-tab="dvds">Films</button>
       <button class="tab" data-tab="cds">Music</button>
+      <button class="tab" data-tab="books">Books</button>
     </div>
     <div class="view-toggle">
       <button class="view-btn active" id="btn-grid" title="Card view" aria-label="Card view">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <svg width="13" height="13" viewBox="0 0 15 15" fill="none">
           <rect x="1" y="1" width="5.5" height="5.5" rx="1" fill="currentColor"/>
           <rect x="8.5" y="1" width="5.5" height="5.5" rx="1" fill="currentColor"/>
           <rect x="1" y="8.5" width="5.5" height="5.5" rx="1" fill="currentColor"/>
@@ -41,7 +42,7 @@
         </svg>
       </button>
       <button class="view-btn" id="btn-list" title="List view" aria-label="List view">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <svg width="13" height="13" viewBox="0 0 15 15" fill="none">
           <rect x="1" y="2.5" width="13" height="1.5" rx="0.75" fill="currentColor"/>
           <rect x="1" y="6.75" width="13" height="1.5" rx="0.75" fill="currentColor"/>
           <rect x="1" y="11" width="13" height="1.5" rx="0.75" fill="currentColor"/>
@@ -54,13 +55,13 @@
 <main>
   <div class="toolbar">
     <div class="search-wrap">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
       <input id="search" type="search" placeholder="Search titles…" autocomplete="off" />
     </div>
     <button class="filter-toggle" id="filter-toggle">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
       </svg>
       <span id="filter-toggle-label">Filter</span>
