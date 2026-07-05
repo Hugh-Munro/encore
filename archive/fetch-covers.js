@@ -1,5 +1,5 @@
 // ── Paste your TMDB key here ──────────────────────────────────────────────
-const TMDB_KEY = 'e6aa66e5b97b5eb1ae04eb212bd954bf';
+const TMDB_KEY = 'YOUR_TMDB_KEY_HERE';
 // ─────────────────────────────────────────────────────────────────────────
 
 const fs   = require('fs');

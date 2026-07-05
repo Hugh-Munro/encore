@@ -11,7 +11,6 @@
   <link rel="icon" type="image/svg+xml" href="public/favicon.svg" />
 </head>
 <body>
-
 <header>
   <div class="header-inner">
     <div class="header-left">
@@ -24,7 +23,6 @@
     </div>
   </div>
 </header>
-
 <div class="tabs-wrap">
   <div class="tabs-inner">
     <div class="tabs">
@@ -48,12 +46,18 @@
           <rect x="1" y="11" width="13" height="1.5" rx="0.75" fill="currentColor"/>
         </svg>
       </button>
+      <button class="view-btn" id="btn-stats" title="Statistics" aria-label="Statistics view">
+        <svg width="13" height="13" viewBox="0 0 15 15" fill="none">
+          <rect x="1.5" y="8" width="3" height="5.5" rx="0.75" fill="currentColor"/>
+          <rect x="6" y="4" width="3" height="9.5" rx="0.75" fill="currentColor"/>
+          <rect x="10.5" y="1" width="3" height="12.5" rx="0.75" fill="currentColor"/>
+        </svg>
+      </button>
     </div>
   </div>
 </div>
-
 <main>
-  <div class="toolbar">
+  <div class="toolbar" id="toolbar">
     <div class="search-wrap">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -68,19 +72,16 @@
     </button>
     <span class="count-label" id="count-label"></span>
   </div>
-
   <div id="filter-bar"></div>
-
   <div id="grid-view" class="card-grid"></div>
-
   <div id="list-view" class="table-wrap hidden">
     <table id="main-table">
       <thead id="table-head"></thead>
       <tbody id="table-body"></tbody>
     </table>
   </div>
+  <div id="stats-view" class="stats-dashboard hidden"></div>
 </main>
-
 <script src="app.js"></script>
 </body>
 </html>
