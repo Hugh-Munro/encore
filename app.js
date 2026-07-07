@@ -530,7 +530,7 @@ function destroyStatsCharts() {
   statsCharts = {};
 }
 
-// ── Stats: build dashboard HTML skeleton ──────────────────────────────────
+// ── Stats: build dashboard grid skeleton (map/genre/timeline/rating) ──────
 function statsSkeleton() {
   const cfg = TABS[activeTab];
   const total = (cache[activeTab] ?? []).length;
@@ -555,14 +555,15 @@ function statsSkeleton() {
 
     <div class="chart-tile map-tile" style="grid-column: span 4; grid-row: span 5;">
       <div class="map-tile-header">
-        <div class="chart-tile-title">Where the ${cfg.headers[1].toLowerCase()}s are from</div>
+        <div class="chart-tile-title">${cfg.headers[1]} Nationality</div>
         ${countryCount ? `<div class="map-legend"><span>1</span><div class="map-legend-bar" style="background:linear-gradient(to right, ${GOLD_RAMP_LIGHT[0]}, ${GOLD_RAMP_LIGHT[5]})"></div><span>${Math.max(...Object.values(originCounts))}</span></div>` : ''}
       </div>
       <div class="chart-tile-body" id="map-body"></div>
     </div>
 
     <div class="chart-tile" style="grid-column: span 2; grid-row: span 5;">
-      <div class="chart-tile-title">Genres · click a bar to filter</div>
+      <div class="chart-tile-title">Genres</div>
+      <div class="chart-tile-sub">Click a bar to filter</div>
       <div class="chart-tile-body" id="genre-body"></div>
     </div>
 
@@ -575,11 +576,19 @@ function statsSkeleton() {
     <div class="chart-tile" style="grid-column: span 3; grid-row: span 3;">
       <div class="chart-tile-title">Rating distribution</div>
       <div class="chart-tile-body" id="rating-body"></div>
-    </div>
+    </div>`;
+}
 
-    <div class="chart-tile latest-tile">
-      <div class="chart-tile-title">Latest ${cfg.statusLabel.toLowerCase()}</div>
-      <div class="latest-scroll" id="latest-body"></div>
+// ── Stats: build the Latest section (fully outside the grid, sizes to content) ──
+function latestSkeleton() {
+  const cfg = TABS[activeTab];
+  return `
+    <div class="latest-section">
+      <div class="chart-tile latest-tile">
+        <div class="chart-tile-title">Latest ${cfg.statusLabel.toLowerCase()}</div>
+        <div class="latest-scroll" id="latest-body"></div>
+      </div>
+      <div class="latest-footer">Encore</div>
     </div>`;
 }
 
@@ -686,7 +695,6 @@ function renderStatsCharts() {
   } else {
     mapBody.innerHTML = `<div id="map-svg" style="width:100%;height:100%;"></div>`;
     loadWorldTopo().then(world => {
-      const isDark = false; // Encore doesn't currently support a dark theme
       const maxVal = Math.max(...Object.values(originCounts));
       const color = d3.scaleQuantize([0, maxVal], GOLD_RAMP_LIGHT);
       const svg = d3.select('#map-svg').append('svg').attr('viewBox', '0 0 900 500').attr('width', '100%').attr('height', '100%');
@@ -735,14 +743,41 @@ function renderStatsCharts() {
       const cover = coverUrl
         ? `<img src="${coverUrl}" alt="${display}" class="latest-cover" loading="lazy">`
         : `<div class="latest-cover-placeholder" style="background:${color}">${ICONS[activeTab]}</div>`;
-      return `<div class="latest-card">${cover}<div class="latest-card-title">${display}</div><div class="latest-card-sub">${creator}</div></div>`;
+      return `<div class="latest-card" data-title="${display.replace(/"/g, '&quot;')}" title="${display.replace(/"/g, '&quot;')} — ${creator}">${cover}<div class="latest-card-title">${display}</div><div class="latest-card-sub">${creator}</div></div>`;
     }).join('');
+    latestBody.querySelectorAll('.latest-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const title = card.dataset.title;
+        query = title;
+        document.getElementById('search').value = title;
+        activeFilters.clear();
+        yearBucketFilter = null;
+        originFilter = null;
+        statusFilter = 'all';
+        viewMode = 'grid';
+        setActiveViewBtn('btn-grid');
+        document.getElementById('toolbar').classList.remove('stats-mode');
+        render();
+        requestAnimationFrame(() => {
+          const matchedCard = [...document.querySelectorAll('#grid-view .card-title')]
+            .find(el => el.textContent.trim().startsWith(title));
+          if (matchedCard) {
+            const cardEl = matchedCard.closest('.card');
+            cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            cardEl.classList.add('flipped');
+          }
+        });
+      });
+    });
   }
 }
 
 function renderStats() {
   const statsEl = document.getElementById('stats-view');
+  const latestEl = document.getElementById('stats-latest');
   statsEl.innerHTML = statsSkeleton();
+  latestEl.innerHTML = latestSkeleton();
+  latestEl.classList.remove('hidden');
   loadStatsLibs().then(renderStatsCharts).catch(err => {
     console.warn('Could not load stats libraries', err);
     statsEl.innerHTML += `<div class="chart-empty" style="grid-column:1/-1">Could not load charts — check your connection.</div>`;
@@ -751,10 +786,11 @@ function renderStats() {
 
 // ── Master render ─────────────────────────────────────────────────────────
 function render() {
-  const cfg    = TABS[activeTab];
-  const gridEl = document.getElementById('grid-view');
-  const listEl = document.getElementById('list-view');
+  const cfg     = TABS[activeTab];
+  const gridEl  = document.getElementById('grid-view');
+  const listEl  = document.getElementById('list-view');
   const statsEl = document.getElementById('stats-view');
+  const latestEl = document.getElementById('stats-latest');
 
   if (viewMode === 'stats') {
     gridEl.classList.add('hidden');
@@ -767,6 +803,7 @@ function render() {
   }
 
   statsEl.classList.add('hidden');
+  latestEl.classList.add('hidden');
   const rows = getRows();
   const data = cache[activeTab] ?? [];
   renderFilterBar();
@@ -873,4 +910,4 @@ async function loadStats() {
   await loadTab('dvds');
   render();
   loadStats();
-})();
+})(); 
