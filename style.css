@@ -443,3 +443,9 @@ td.creator { color: #999; font-size: 0.82rem; }
   .stat-tile { grid-column: span 1; }
   .chart-tile { grid-column: span 2 !important; grid-row: span 4 !important; }
 }
+
+.star-row { display: flex; gap: 2px; }
+.star-unit { display: inline-flex; color: rgba(255,255,255,0.2); }
+.table-stars .star-unit { color: #ddd6c8; }
+.star-unit.editable { cursor: pointer; transition: transform 0.1s; }
+.star-unit.editable:hover { transform: scale(1.15); }

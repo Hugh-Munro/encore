@@ -51,6 +51,9 @@ const COUNTRY_ALIASES = {
   'macedonia': 'North Macedonia', 'the netherlands': 'Netherlands', 'holland': 'Netherlands',
   'burma': 'Myanmar',
 };
+
+let ratingOverrides = {}; // { tab: { rawTitle: rating } }
+
 function normalizeCountry(raw) {
   const key = raw.trim().toLowerCase();
   return COUNTRY_ALIASES[key] || raw.trim();
@@ -128,6 +131,47 @@ async function loadTab(tab) {
   } catch (e) {
     cache[tab] = [];
     console.warn(`Could not load ${TABS[tab].file}:`, e);
+  }
+
+  try {
+    const res = await fetch(`/api/rating?tab=${tab}`);
+    if (res.ok) {
+      ratingOverrides[tab] = await res.json();
+      const cfg = TABS[tab];
+      cache[tab].forEach(row => {
+        const raw = row[cfg.cols[0]] || '';
+        if (ratingOverrides[tab][raw] !== undefined) {
+          row.rating = ratingOverrides[tab][raw];
+        } else if (row.rating) {
+          row.rating = Math.round(parseFloat(row.rating)) || '';
+        }
+      });
+    }
+  } catch (e) {
+    console.warn(`Could not load ratings for ${tab}:`, e);
+  }
+}
+
+async function setRating(tab, rawKey, newRating) {
+  const cfg = TABS[tab];
+  const row = (cache[tab] ?? []).find(r => (r[cfg.cols[0]] || '') === rawKey);
+  if (!row) return;
+
+  row.rating = newRating || '';
+  ratingOverrides[tab] = ratingOverrides[tab] || {};
+  if (newRating) ratingOverrides[tab][rawKey] = newRating;
+  else delete ratingOverrides[tab][rawKey];
+
+  render();
+
+  try {
+    await fetch('/api/rating', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tab, key: rawKey, rating: newRating || 0 })
+    });
+  } catch (e) {
+    console.warn('Failed to save rating', e);
   }
 }
 
@@ -255,58 +299,27 @@ function getRows() {
 }
 
 // ── Render stars ──────────────────────────────────────────────────────────
-function starsToSVG(val, goldColor, emptyColor, size) {
-  const gap = size * 0.2;
-  const r = size / 2;
-  function starPath(cx, cy) {
-    const outer = r * 0.95;
-    const inner = r * 0.4;
-    let d = '';
-    for (let i = 0; i < 5; i++) {
-      const outerAngle = (i * 72 - 90) * Math.PI / 180;
-      const innerAngle = (i * 72 - 90 + 36) * Math.PI / 180;
-      const ox = cx + outer * Math.cos(outerAngle);
-      const oy = cy + outer * Math.sin(outerAngle);
-      const ix = cx + inner * Math.cos(innerAngle);
-      const iy = cy + inner * Math.sin(innerAngle);
-      d += i === 0 ? `M${ox},${oy}` : `L${ox},${oy}`;
-      d += `L${ix},${iy}`;
-    }
-    return d + 'Z';
+function starsHTML(val, size, editable, dataKey) {
+  val = Math.round(parseFloat(val)) || 0;
+  const stars = [];
+  for (let i = 1; i <= 5; i++) {
+    const filled = i <= val;
+    stars.push(`<span class="star-unit ${filled ? 'filled' : ''} ${editable ? 'editable' : ''}"
+      data-value="${i}" style="width:${size}px;height:${size}px;">
+      <svg viewBox="0 0 24 24" width="${size}" height="${size}">
+        <path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.9-6.2 3.9 1.6-7L2 9.2l7.1-.6z"
+          fill="${filled ? '#c9b97a' : 'currentColor'}"/>
+      </svg>
+    </span>`);
   }
-  const totalW = 5 * size + 4 * gap;
-  let content = '';
-  for (let i = 0; i < 5; i++) {
-    const cx = i * (size + gap) + r;
-    const cy = r;
-    const path = starPath(cx, cy);
-    const clipId = `hc${i}${Math.floor(Math.random()*9999)}`;
-    if (val >= i + 1) {
-      content += `<path d="${path}" fill="${goldColor}"/>`;
-    } else if (val >= i + 0.5) {
-      content += `<path d="${path}" fill="${emptyColor}"/>`;
-      content += `<clipPath id="${clipId}"><rect x="${i*(size+gap)}" y="0" width="${r}" height="${size}"/></clipPath>`;
-      content += `<path d="${path}" fill="${goldColor}" clip-path="url(#${clipId})"/>`;
-    } else {
-      content += `<path d="${path}" fill="${emptyColor}"/>`;
-    }
-  }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${size}" viewBox="0 0 ${totalW} ${size}" style="display:block;"><defs>${
-    Array.from({length:5},(_,i)=>{
-      const cx = i*(size+gap)+r;
-      const clipId = `hc${i}`;
-      if(val>=i+0.5 && val<i+1) return `<clipPath id="${clipId}"><rect x="${i*(size+gap)}" y="0" width="${r}" height="${size}"/></clipPath>`;
-      return '';
-    }).join('')
-  }</defs>${content}</svg>`;
+  return `<div class="star-row" data-key="${dataKey ? dataKey.replace(/"/g, '&quot;') : ''}">${stars.join('')}</div>`;
 }
-function renderStars(rating) {
-  const val = parseFloat(rating);
-  if (!val || isNaN(val)) return '';
-  return `<div class="card-back-stars">${starsToSVG(val, '#c9b97a', 'rgba(255,255,255,0.2)', 18)}</div>`;
+
+function renderStars(rating, rawKey) {
+  return `<div class="card-back-stars">${starsHTML(rating, 18, true, rawKey)}</div>`;
 }
-function renderTableStars(val) {
-  return starsToSVG(val, '#c9b97a', '#ddd6c8', 14);
+function renderTableStars(rating, rawKey) {
+  return starsHTML(rating, 15, true, rawKey);
 }
 
 // ── Render filter bar ─────────────────────────────────────────────────────
@@ -407,16 +420,17 @@ function renderGrid(rows) {
   }
   grid.innerHTML = rows.map(r => {
     const { display, copies } = parseTitle(r[cfg.cols[0]] || '');
-    const badge       = copies > 1 ? `<span class="card-badge">×${copies}</span>` : '';
-    const creator     = r[cfg.cols[1]] || '';
-    const rating      = r['rating'] || '';
-    const status      = (r['status'] || '').trim().toLowerCase();
-    const statusLabel = TABS[activeTab].statusLabel;
-    const isDone      = status === statusLabel.toLowerCase();
-    const creatorBack = (!creator || creator.toLowerCase() === 'n/a')
+    const rawKey       = r[cfg.cols[0]] || '';
+    const badge        = copies > 1 ? `<span class="card-badge">×${copies}</span>` : '';
+    const creator      = r[cfg.cols[1]] || '';
+    const rating       = r['rating'] || '';
+    const status       = (r['status'] || '').trim().toLowerCase();
+    const statusLabel  = TABS[activeTab].statusLabel;
+    const isDone       = status === statusLabel.toLowerCase();
+    const creatorBack  = (!creator || creator.toLowerCase() === 'n/a')
       ? '' : `<div class="card-back-divider"></div><div class="card-back-creator">${creator}</div>`;
-    const starsHtml   = renderStars(rating);
-    const statusHtml  = `<div class="card-back-status ${isDone ? 'done' : 'undone'}">${isDone ? statusLabel : `Not ${statusLabel}`}</div>`;
+    const starsHtml    = renderStars(rating, rawKey);
+    const statusHtml   = `<div class="card-back-status ${isDone ? 'done' : 'undone'}">${isDone ? statusLabel : `Not ${statusLabel}`}</div>`;
     const coverUrl = covers[activeTab]?.[display];
     const imgHtml  = coverUrl
       ? `<img src="${coverUrl}" alt="${display}" class="card-cover" loading="lazy">`
@@ -440,9 +454,25 @@ function renderGrid(rows) {
         </div>
       </div>`;
   }).join('');
+
   grid.querySelectorAll('.card').forEach(card => {
     card.querySelector('.card-front').addEventListener('click', () => card.classList.add('flipped'));
-    card.querySelector('.card-back').addEventListener('click',  () => card.classList.remove('flipped'));
+    card.querySelector('.card-back').addEventListener('click', (e) => {
+      if (e.target.closest('.star-row')) return;
+      card.classList.remove('flipped');
+    });
+  });
+
+  grid.querySelectorAll('.star-row').forEach(row => {
+    row.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const unit = e.target.closest('.star-unit');
+      if (!unit) return;
+      const clickedVal = parseInt(unit.dataset.value);
+      const currentVal = row.querySelectorAll('.star-unit.filled').length;
+      const newVal = clickedVal === currentVal ? 0 : clickedVal;
+      setRating(activeTab, row.dataset.key, newVal);
+    });
   });
 }
 
@@ -472,6 +502,7 @@ function renderTable(rows) {
   } else {
     body.innerHTML = rows.map(r => {
       const { display, copies } = parseTitle(r[cfg.cols[0]] || '');
+      const rawKey   = r[cfg.cols[0]] || '';
       const badge    = copies > 1 ? `<span class="badge">×${copies}</span>` : '';
       const creator  = r[cfg.cols[1]] || '';
       const genre    = r[cfg.filterCol] || '';
@@ -484,13 +515,22 @@ function renderTable(rows) {
       const genreCell = genre
         ? `<td><span class="table-genre">${genre}</span></td>`
         : `<td class="creator">—</td>`;
-      const ratingCell = rating
-        ? `<td class="table-stars">${renderTableStars(parseFloat(rating))}</td>`
-        : `<td class="creator">—</td>`;
+      const ratingCell = `<td class="table-stars">${renderTableStars(rating, rawKey)}</td>`;
       const statusCell = `<td><span class="table-status ${isDone ? 'done' : 'undone'}">${isDone ? statusLabel : `Not ${statusLabel}`}</span></td>`;
       return `<tr><td>${display}${badge}</td>${creatorCell}${genreCell}${ratingCell}${statusCell}</tr>`;
     }).join('');
   }
+
+  body.querySelectorAll('.star-row').forEach(row => {
+    row.addEventListener('click', (e) => {
+      const unit = e.target.closest('.star-unit');
+      if (!unit) return;
+      const clickedVal = parseInt(unit.dataset.value);
+      const currentVal = row.querySelectorAll('.star-unit.filled').length;
+      const newVal = clickedVal === currentVal ? 0 : clickedVal;
+      setRating(activeTab, row.dataset.key, newVal);
+    });
+  });
 }
 
 // ── Stats: lazy library loading ───────────────────────────────────────────
