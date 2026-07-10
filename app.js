@@ -162,7 +162,15 @@ async function setRating(tab, rawKey, newRating) {
   if (newRating) ratingOverrides[tab][rawKey] = newRating;
   else delete ratingOverrides[tab][rawKey];
 
-  render();
+  // Update in-place instead of full re-render, so card flip state / scroll position survive
+  document.querySelectorAll(`.star-row[data-key="${CSS.escape(rawKey)}"]`).forEach(starRow => {
+    starRow.querySelectorAll('.star-unit').forEach(unit => {
+      const val = parseInt(unit.dataset.value);
+      const filled = val <= newRating;
+      unit.classList.toggle('filled', filled);
+      unit.querySelector('path').setAttribute('fill', filled ? '#c9b97a' : 'currentColor');
+    });
+  });
 
   try {
     await fetch('/api/rating', {
