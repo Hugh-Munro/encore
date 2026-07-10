@@ -449,3 +449,5 @@ td.creator { color: #999; font-size: 0.82rem; }
 .table-stars .star-unit { color: #ddd6c8; }
 .star-unit.editable { cursor: pointer; transition: transform 0.1s; }
 .star-unit.editable:hover { transform: scale(1.15); }
+.status-toggle { cursor: pointer; user-select: none; transition: opacity 0.15s; }
+.status-toggle:hover { opacity: 0.75; }

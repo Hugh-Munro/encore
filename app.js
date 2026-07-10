@@ -51,9 +51,6 @@ const COUNTRY_ALIASES = {
   'macedonia': 'North Macedonia', 'the netherlands': 'Netherlands', 'holland': 'Netherlands',
   'burma': 'Myanmar',
 };
-
-let ratingOverrides = {}; // { tab: { rawTitle: rating } }
-
 function normalizeCountry(raw) {
   const key = raw.trim().toLowerCase();
   return COUNTRY_ALIASES[key] || raw.trim();
@@ -92,6 +89,8 @@ let statusFilter   = 'all';  // 'all' | 'done' | 'undone'
 let filterBarOpen  = false;
 let yearBucketFilter = null; // set when a timeline bar is clicked in stats
 let originFilter      = null; // set when a map country is clicked in stats
+let ratingOverrides = {};   // { tab: { rawTitle: rating } }
+let statusOverrides = {};   // { tab: { rawTitle: status } }
 
 // ── CSV parser ───────────────────────────────────────────────────────────
 function parseCSV(text) {
@@ -136,7 +135,9 @@ async function loadTab(tab) {
   try {
     const res = await fetch(`/api/rating?tab=${tab}`);
     if (res.ok) {
-      ratingOverrides[tab] = await res.json();
+      const { ratings, statuses } = await res.json();
+      ratingOverrides[tab] = ratings || {};
+      statusOverrides[tab] = statuses || {};
       const cfg = TABS[tab];
       cache[tab].forEach(row => {
         const raw = row[cfg.cols[0]] || '';
@@ -145,13 +146,30 @@ async function loadTab(tab) {
         } else if (row.rating) {
           row.rating = Math.round(parseFloat(row.rating)) || '';
         }
+        if (statusOverrides[tab][raw] !== undefined) {
+          row.status = statusOverrides[tab][raw];
+        }
       });
     }
   } catch (e) {
-    console.warn(`Could not load ratings for ${tab}:`, e);
+    console.warn(`Could not load overrides for ${tab}:`, e);
   }
 }
 
+// ── Persist a single field (rating or status) to the API ─────────────────
+async function saveField(tab, rawKey, field, value) {
+  try {
+    await fetch('/api/rating', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tab, key: rawKey, field, value })
+    });
+  } catch (e) {
+    console.warn(`Failed to save ${field}`, e);
+  }
+}
+
+// ── Set rating (updates state + DOM in place, persists, auto-marks done) ──
 async function setRating(tab, rawKey, newRating) {
   const cfg = TABS[tab];
   const row = (cache[tab] ?? []).find(r => (r[cfg.cols[0]] || '') === rawKey);
@@ -162,7 +180,6 @@ async function setRating(tab, rawKey, newRating) {
   if (newRating) ratingOverrides[tab][rawKey] = newRating;
   else delete ratingOverrides[tab][rawKey];
 
-  // Update in-place instead of full re-render, so card flip state / scroll position survive
   document.querySelectorAll(`.star-row[data-key="${CSS.escape(rawKey)}"]`).forEach(starRow => {
     starRow.querySelectorAll('.star-unit').forEach(unit => {
       const val = parseInt(unit.dataset.value);
@@ -172,15 +189,34 @@ async function setRating(tab, rawKey, newRating) {
     });
   });
 
-  try {
-    await fetch('/api/rating', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tab, key: rawKey, rating: newRating || 0 })
-    });
-  } catch (e) {
-    console.warn('Failed to save rating', e);
+  saveField(tab, rawKey, 'rating', newRating || 0);
+
+  // Auto-mark as done (watched/read/listened) when rating something not yet marked done
+  const currentStatus = (row['status'] || '').trim().toLowerCase();
+  const doneLabel = cfg.statusLabel.toLowerCase();
+  if (newRating > 0 && currentStatus !== doneLabel) {
+    await setStatus(tab, rawKey, cfg.statusLabel);
   }
+}
+
+// ── Set status (updates state + DOM in place, persists) ──────────────────
+async function setStatus(tab, rawKey, newStatusValue) {
+  const cfg = TABS[tab];
+  const row = (cache[tab] ?? []).find(r => (r[cfg.cols[0]] || '') === rawKey);
+  if (!row) return;
+
+  row.status = newStatusValue;
+  statusOverrides[tab] = statusOverrides[tab] || {};
+  statusOverrides[tab][rawKey] = newStatusValue;
+
+  const isDone = (newStatusValue || '').trim().toLowerCase() === cfg.statusLabel.toLowerCase();
+  document.querySelectorAll(`.status-toggle[data-key="${CSS.escape(rawKey)}"]`).forEach(el => {
+    el.classList.toggle('done', isDone);
+    el.classList.toggle('undone', !isDone);
+    el.textContent = isDone ? cfg.statusLabel : `Not ${cfg.statusLabel}`;
+  });
+
+  saveField(tab, rawKey, 'status', newStatusValue || '');
 }
 
 // ── Genre counts ─────────────────────────────────────────────────────────
@@ -322,7 +358,6 @@ function starsHTML(val, size, editable, dataKey) {
   }
   return `<div class="star-row" data-key="${dataKey ? dataKey.replace(/"/g, '&quot;') : ''}">${stars.join('')}</div>`;
 }
-
 function renderStars(rating, rawKey) {
   return `<div class="card-back-stars">${starsHTML(rating, 18, true, rawKey)}</div>`;
 }
@@ -438,7 +473,8 @@ function renderGrid(rows) {
     const creatorBack  = (!creator || creator.toLowerCase() === 'n/a')
       ? '' : `<div class="card-back-divider"></div><div class="card-back-creator">${creator}</div>`;
     const starsHtml    = renderStars(rating, rawKey);
-    const statusHtml   = `<div class="card-back-status ${isDone ? 'done' : 'undone'}">${isDone ? statusLabel : `Not ${statusLabel}`}</div>`;
+    const keyAttr      = rawKey.replace(/"/g, '&quot;');
+    const statusHtml   = `<div class="card-back-status status-toggle ${isDone ? 'done' : 'undone'}" data-key="${keyAttr}">${isDone ? statusLabel : `Not ${statusLabel}`}</div>`;
     const coverUrl = covers[activeTab]?.[display];
     const imgHtml  = coverUrl
       ? `<img src="${coverUrl}" alt="${display}" class="card-cover" loading="lazy">`
@@ -466,7 +502,7 @@ function renderGrid(rows) {
   grid.querySelectorAll('.card').forEach(card => {
     card.querySelector('.card-front').addEventListener('click', () => card.classList.add('flipped'));
     card.querySelector('.card-back').addEventListener('click', (e) => {
-      if (e.target.closest('.star-row')) return;
+      if (e.target.closest('.star-row') || e.target.closest('.status-toggle')) return;
       card.classList.remove('flipped');
     });
   });
@@ -480,6 +516,15 @@ function renderGrid(rows) {
       const currentVal = row.querySelectorAll('.star-unit.filled').length;
       const newVal = clickedVal === currentVal ? 0 : clickedVal;
       setRating(activeTab, row.dataset.key, newVal);
+    });
+  });
+
+  grid.querySelectorAll('.status-toggle').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isDone = el.classList.contains('done');
+      const newVal = isDone ? '' : TABS[activeTab].statusLabel;
+      setStatus(activeTab, el.dataset.key, newVal);
     });
   });
 }
@@ -517,6 +562,7 @@ function renderTable(rows) {
       const rating   = r['rating'] || '';
       const status   = (r['status'] || '').trim().toLowerCase();
       const isDone   = status === statusLabel.toLowerCase();
+      const keyAttr  = rawKey.replace(/"/g, '&quot;');
       const creatorCell = (!creator || creator.toLowerCase() === 'n/a')
         ? '<td class="creator">—</td>'
         : `<td class="creator">${creator}</td>`;
@@ -524,7 +570,7 @@ function renderTable(rows) {
         ? `<td><span class="table-genre">${genre}</span></td>`
         : `<td class="creator">—</td>`;
       const ratingCell = `<td class="table-stars">${renderTableStars(rating, rawKey)}</td>`;
-      const statusCell = `<td><span class="table-status ${isDone ? 'done' : 'undone'}">${isDone ? statusLabel : `Not ${statusLabel}`}</span></td>`;
+      const statusCell = `<td><span class="table-status status-toggle ${isDone ? 'done' : 'undone'}" data-key="${keyAttr}">${isDone ? statusLabel : `Not ${statusLabel}`}</span></td>`;
       return `<tr><td>${display}${badge}</td>${creatorCell}${genreCell}${ratingCell}${statusCell}</tr>`;
     }).join('');
   }
@@ -537,6 +583,14 @@ function renderTable(rows) {
       const currentVal = row.querySelectorAll('.star-unit.filled').length;
       const newVal = clickedVal === currentVal ? 0 : clickedVal;
       setRating(activeTab, row.dataset.key, newVal);
+    });
+  });
+
+  body.querySelectorAll('.status-toggle').forEach(el => {
+    el.addEventListener('click', () => {
+      const isDone = el.classList.contains('done');
+      const newVal = isDone ? '' : TABS[activeTab].statusLabel;
+      setStatus(activeTab, el.dataset.key, newVal);
     });
   });
 }
@@ -958,4 +1012,4 @@ async function loadStats() {
   await loadTab('dvds');
   render();
   loadStats();
-})(); 
+})();

@@ -2,14 +2,14 @@ import { kv } from '@vercel/kv';
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
-    const { tab, key, rating } = req.body;
-    if (!tab || !key) return res.status(400).json({ error: 'missing tab or key' });
+    const { tab, key, field, value } = req.body;
+    if (!tab || !key || !field) return res.status(400).json({ error: 'missing tab, key, or field' });
 
-    const storeKey = `rating:${tab}:${key}`;
-    if (rating === 0 || rating === null) {
+    const storeKey = `${field}:${tab}:${key}`;
+    if (value === 0 || value === null || value === '') {
       await kv.del(storeKey);
     } else {
-      await kv.set(storeKey, rating);
+      await kv.set(storeKey, value);
     }
     return res.status(200).json({ ok: true });
   }
@@ -18,16 +18,21 @@ export default async function handler(req, res) {
     const { tab } = req.query;
     if (!tab) return res.status(400).json({ error: 'missing tab' });
 
-    const keys = await kv.keys(`rating:${tab}:*`);
+    const ratingKeys = await kv.keys(`rating:${tab}:*`);
+    const statusKeys = await kv.keys(`status:${tab}:*`);
     const ratings = {};
-    if (keys.length) {
-      const values = await kv.mget(...keys);
-      keys.forEach((k, i) => {
-        const itemKey = k.slice(`rating:${tab}:`.length);
-        ratings[itemKey] = values[i];
-      });
+    const statuses = {};
+
+    if (ratingKeys.length) {
+      const values = await kv.mget(...ratingKeys);
+      ratingKeys.forEach((k, i) => { ratings[k.slice(`rating:${tab}:`.length)] = values[i]; });
     }
-    return res.status(200).json(ratings);
+    if (statusKeys.length) {
+      const values = await kv.mget(...statusKeys);
+      statusKeys.forEach((k, i) => { statuses[k.slice(`status:${tab}:`.length)] = values[i]; });
+    }
+
+    return res.status(200).json({ ratings, statuses });
   }
 
   res.status(405).end();
